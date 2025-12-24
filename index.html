@@ -3,114 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Normi Shop</title>
+    <title>Normi Mega Shop</title>
+    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 
     <style>
-        :root { --tg-color: #0088cc; --bg-color: #f4f4f7; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); margin: 0; padding: 15px; user-select: none; }
+        :root {
+            --tg-blue: #0088cc;
+            --bg: #f5f5f7;
+            --card: #ffffff;
+            --text: #000000;
+            --sub: #8e8e93;
+        }
+        body.dark {
+            --bg: #1c1c1d;
+            --card: #2c2c2e;
+            --text: #ffffff;
+            --sub: #aaaaaa;
+        }
+        body { font-family: -apple-system, system-ui; background: var(--bg); color: var(--text); margin: 0; transition: 0.3s; overflow-x: hidden; }
         
-        /* Стиль кошелька */
-        .wallet-card { background: #fff; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .balance-label { color: #8e8e93; font-size: 14px; }
-        .balance-value { font-size: 38px; font-weight: 800; margin: 10px 0; color: #000; }
-        
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        .btn { background: var(--tg-color); color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-secondary { background: #e5e5ea; color: #000; }
-        
-        /* Список функций */
-        .menu-list { background: #fff; border-radius: 15px; margin-top: 20px; overflow: hidden; }
-        .menu-item { padding: 15px; border-bottom: 1px solid #f2f2f7; display: flex; justify-content: space-between; cursor: pointer; }
-        .menu-item:last-child { border-bottom: none; }
+        .screen { display: none; padding: 20px; min-height: 100vh; box-sizing: border-box; }
+        .screen.active { display: block; }
 
-        /* Админка */
-        #admin-panel { display: none; background: #ffebeb; border: 2px dashed red; margin-top: 20px; border-radius: 15px; padding: 15px; }
+        /* Auth Card */
+        .card { background: var(--card); border-radius: 20px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 12px; border: 1px solid #ddd; box-sizing: border-box; background: var(--card); color: var(--text); }
+        
+        .btn { background: var(--tg-blue); color: #white; border: none; padding: 14px; border-radius: 12px; width: 100%; font-weight: bold; cursor: pointer; margin: 5px 0; color: white; }
+        .btn-outline { background: none; border: 2px solid var(--tg-blue); color: var(--tg-blue); }
+        
+        /* TabBar */
+        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--card); display: flex; border-top: 1px solid #ddd; padding: 10px 0; z-index: 100; }
+        .tab { flex: 1; text-align: center; font-size: 11px; color: var(--sub); cursor: pointer; }
+        .tab.active { color: var(--tg-blue); }
+        .tab-icon { font-size: 20px; display: block; }
+
+        /* Shop Grid */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .item { background: var(--card); border-radius: 15px; padding: 10px; text-align: center; }
+        
+        /* Modal Settings */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; }
+        .modal-content { background: var(--card); width: 80%; border-radius: 20px; padding: 20px; }
     </style>
 </head>
 <body>
 
-    <div class="wallet-card">
-        <div class="balance-label">Мой баланс</div>
-        <div class="balance-value" id="balance">0.00 ₽</div>
-        <div class="btn-group">
-            <button class="btn" onclick="requestDeposit()">Пополнить</button>
-            <button class="btn btn-secondary" onclick="alert('В разработке')">Вывести</button>
+<div id="screen-auth" class="screen active">
+    <div class="card" style="text-align: center; margin-top: 40px;">
+        <h2 data-i18n="welcome">Добро пожаловать</h2>
+        <input type="email" id="auth-email" placeholder="Email">
+        <input type="password" id="auth-pass" placeholder="Password">
+        
+        <p data-i18n="how_verify">Как проверим почту?</p>
+        <div style="display:flex; gap:10px;">
+            <button class="btn" onclick="startAuth('code')" data-i18n="via_code">🔢 Кодом</button>
+            <button class="btn btn-outline" onclick="startAuth('link')" data-i18n="via_link">🔗 Ссылкой</button>
+        </div>
+        
+        <div id="code-input-area" style="display:none; margin-top: 20px;">
+            <input type="number" id="ver-code-val" placeholder="000000">
+            <button class="btn" onclick="finishCodeAuth()">Подтвердить код</button>
+        </div>
+        
+        <button class="btn" style="background:#db4437; margin-top:20px;" onclick="loginGoogle()">Google Login</button>
+    </div>
+</div>
+
+<div id="screen-main" class="screen">
+    <div style="display:flex; justify-content: space-between; align-items: center;">
+        <h1 id="screen-title" data-i18n="shop">Магазин</h1>
+        <button onclick="toggleModal(true)" style="background:none; border:none; font-size:24px;">⚙️</button>
+    </div>
+
+    <div id="tab-shop" class="tab-content">
+        <div class="grid">
+            <div class="item"><h3>Tetris VIP</h3><p>99 ₽</p><button class="btn">Buy</button></div>
+            <div class="item"><h3>Snake Pro</h3><p>49 ₽</p><button class="btn">Buy</button></div>
         </div>
     </div>
 
-    <div class="menu-list">
-        <div class="menu-item" onclick="alert('Магазин пуст')"><span>🛒 Магазин</span> ❯</div>
-        <div class="menu-item" onclick="alert('Скоро мультиплеер!')"><span>🎮 Мини-игры</span> ❯</div>
-        <div class="menu-item" onclick="alert('Напишите @твой_ник')"><span>🎧 Поддержка</span> ❯</div>
+    <div id="tab-profile" class="tab-content" style="display:none;">
+        <div class="card">
+            <h3 id="user-name">User</h3>
+            <p>ID: <span id="user-id">...</span></p>
+            <button class="btn btn-outline" onclick="changeNick()" data-i18n="change_nick">Сменить ник</button>
+        </div>
+        <button class="btn" style="background:#ff3b30" onclick="firebase.auth().signOut()" data-i18n="logout">Выйти</button>
     </div>
 
-    <div id="admin-panel">
-        <h3 style="color:red; margin-top:0;">Админ-панель</h3>
-        <input type="number" id="admin-amount" placeholder="Сумма" style="width:70%; padding:8px; border-radius:8px; border:1px solid #ccc;">
-        <button class="btn" style="width:auto; padding:8px 15px;" onclick="addBalanceManual()">Дать ₽</button>
+    <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('shop', this)"><span class="tab-icon">🛒</span><span data-i18n="shop">Магазин</span></div>
+        <div class="tab" onclick="switchTab('games', this)"><span class="tab-icon">🎮</span><span data-i18n="games">Игры</span></div>
+        <div class="tab" onclick="switchTab('chats', this)"><span class="tab-icon">💬</span><span data-i18n="chat">Чаты</span></div>
+        <div class="tab" onclick="switchTab('profile', this)"><span class="tab-icon">👤</span><span data-i18n="profile">Профиль</span></div>
     </div>
+</div>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-
-        // Инициализация твоего Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyBALmJCUM8bIdVgBFJF66N_VoOcU4V1nqs",
-            authDomain: "normishop.firebaseapp.com",
-            databaseURL: "https://normishop-default-rtdb.firebaseio.com",
-            projectId: "normishop",
-            storageBucket: "normishop.firebasestorage.app",
-            messagingSenderId: "688066350050",
-            appId: "1:688066350050:web:ceba21916cf9708a84c7bb"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        const userId = tg.initDataUnsafe.user?.id || "test_user"; // ID пользователя ТГ
+<div id="modal-settings" class="modal">
+    <div class="modal-content">
+        <h3 data-i18n="settings">Настройки</h3>
+        <label>Язык / Language:</label>
+        <select id="lang-select" onchange="setLang(this.value)" style="width:100%; padding:10px; border-radius:10px; margin:10px 0;">
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="zh">中文</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="meme">Мемный (RU)</option>
+        </select>
         
-        // ТВОЙ ID (замени на свой настоящий ID из ТГ, чтобы увидеть админку)
-        const MY_ID = 12345678; 
+        <button class="btn btn-outline" onclick="toggleTheme()" style="margin-top:10px;">🌓 Сменить тему</button>
+        <button class="btn" onclick="toggleModal(false)" style="margin-top:20px;">ОК</button>
+    </div>
+</div>
 
-        if (userId === MY_ID) {
-            document.getElementById('admin-panel').style.display = 'block';
-        }
+<script>
+// --- КОНФИГУРАЦИЯ (ВСТАВЬ СВОЁ) ---
+const firebaseConfig = {
+    apiKey: "AIzaSyBALmJCUM8bIdVgBFJF66N_VoOcU4V1nqs",
+    authDomain: "normishop.firebaseapp.com",
+    projectId: "normishop",
+    storageBucket: "normishop.firebasestorage.app",
+    messagingSenderId: "688066350050",
+    appId: "1:688066350050:web:ceba21916cf9708a84c7bb"
+};
+firebase.initializeApp(firebaseConfig);
+emailjs.init("ТВОЙ_PUBLIC_KEY"); // <-- ТВОЙ КЛЮЧ ТУТ
 
-        // Загрузка данных пользователя
-        function loadData() {
-            db.collection("users").doc(userId.toString()).onSnapshot((doc) => {
-                if (doc.exists) {
-                    document.getElementById('balance').innerText = doc.data().balance.toFixed(2) + ' ₽';
-                } else {
-                    // Создаем юзера, если его нет
-                    db.collection("users").doc(userId.toString()).set({ balance: 0, role: "user" });
-                }
-            });
-        }
+const auth = firebase.auth();
+const db = firebase.firestore();
+let generatedCode = null;
 
-        // Пополнение (заявка админу)
-        function requestDeposit() {
-            tg.showPopup({
-                title: 'Пополнение баланса',
-                message: 'Отправьте деньги по номеру +7900... и напишите админу ваш ID: ' + userId,
-                buttons: [{text: 'Скопировать ID', type: 'default'}, {text: 'Закрыть', type: 'destructive'}]
-            });
-        }
+// --- ПЕРЕВОДЫ ---
+const translations = {
+    ru: { welcome: "Привет!", shop: "Магазин", games: "Игры", chat: "Чаты", profile: "Профиль", settings: "Настройки", via_code: "Кодом", via_link: "Ссылкой", logout: "Выйти", change_nick: "Сменить ник", how_verify: "Как проверим почту?" },
+    en: { welcome: "Welcome!", shop: "Shop", games: "Games", chat: "Chats", profile: "Profile", settings: "Settings", via_code: "Code", via_link: "Link", logout: "Logout", change_nick: "Change Nick", how_verify: "Verify method?" },
+    meme: { welcome: "Здарова, легенда!", shop: "Базар", games: "Катки", chat: "Тёрки", profile: "Моя репа", settings: "Шестерни", via_code: "Цифрами", via_link: "Тыком", logout: "Ливнуть", change_nick: "Новое погоняло", how_verify: "Как чекать будем?" },
+    // Остальные языки добавь по аналогии (es, zh, ja, ko)
+};
 
-        // Функция админа: добавить баланс
-        function addBalanceManual() {
-            const amt = parseFloat(document.getElementById('admin-amount').value);
-            if (!amt) return;
-            db.collection("users").doc(userId.toString()).update({
-                balance: firebase.firestore.FieldValue.increment(amt)
-            });
-        }
+// --- ЛОГИКА ---
+function setLang(l) {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.innerText = translations[l][key] || translations['en'][key];
+    });
+}
 
-        loadData();
-    </script>
+function toggleTheme() {
+    document.body.classList.toggle('dark');
+}
+
+function toggleModal(show) {
+    document.getElementById('modal-settings').style.display = show ? 'flex' : 'none';
+}
+
+function switchTab(tabId, el) {
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + tabId).style.display = 'block';
+    el.classList.add('active');
+    document.getElementById('screen-title').innerText = translations['ru'][tabId] || tabId;
+}
+
+// --- АВТОРИЗАЦИЯ ---
+async function startAuth(method) {
+    const email = document.getElementById('auth-email').value;
+    const pass = document.getElementById('auth-pass').value;
+    if(!email || !pass) return alert("Введи данные!");
+
+    if(method === 'link') {
+        auth.createUserWithEmailAndPassword(email, pass).then(res => {
+            res.user.sendEmailVerification();
+            alert("Ссылка на почте!");
+        }).catch(e => alert(e.message));
+    } else {
+        generatedCode = Math.floor(100000 + Math.random() * 900000);
+        emailjs.send("service_z8qzjdb", "template_abc", { to_email: email, ver_code: generatedCode })
+        .then(() => {
+            document.getElementById('code-input-area').style.display = 'block';
+            alert("Код отправлен!");
+        });
+    }
+}
+
+async function finishCodeAuth() {
+    const input = document.getElementById('ver-code-val').value;
+    if(input == generatedCode) {
+        const email = document.getElementById('auth-email').value;
+        const pass = document.getElementById('auth-pass').value;
+        auth.createUserWithEmailAndPassword(email, pass).catch(e => auth.signInWithEmailAndPassword(email, pass));
+    } else alert("Код неверный!");
+}
+
+function loginGoogle() {
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+}
+
+auth.onAuthStateChanged(user => {
+    if(user) {
+        document.getElementById('screen-auth').classList.remove('active');
+        document.getElementById('screen-main').classList.add('active');
+        document.getElementById('user-id').innerText = user.uid;
+        document.getElementById('user-name').innerText = user.displayName || "User";
+    } else {
+        document.getElementById('screen-auth').classList.add('active');
+        document.getElementById('screen-main').classList.remove('active');
+    }
+});
+</script>
 </body>
 </html>
