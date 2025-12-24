@@ -2,65 +2,115 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TG Shop & Wallet</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Normi Shop</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <style>
-        body { font-family: sans-serif; background: #f4f4f5; margin: 0; padding: 20px; color: #000; }
-        .wallet-card { background: #fff; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .balance { fontSize: 32px; font-weight: bold; margin: 10px 0; }
-        .btn { background: #0088cc; color: #fff; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .admin-panel { display: none; margin-top: 20px; border-top: 2px solid #000; padding-top: 10px; }
+        :root { --tg-color: #0088cc; --bg-color: #f4f4f7; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); margin: 0; padding: 15px; user-select: none; }
+        
+        /* Стиль кошелька */
+        .wallet-card { background: #fff; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .balance-label { color: #8e8e93; font-size: 14px; }
+        .balance-value { font-size: 38px; font-weight: 800; margin: 10px 0; color: #000; }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .btn { background: var(--tg-color); color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-secondary { background: #e5e5ea; color: #000; }
+        
+        /* Список функций */
+        .menu-list { background: #fff; border-radius: 15px; margin-top: 20px; overflow: hidden; }
+        .menu-item { padding: 15px; border-bottom: 1px solid #f2f2f7; display: flex; justify-content: space-between; cursor: pointer; }
+        .menu-item:last-child { border-bottom: none; }
+
+        /* Админка */
+        #admin-panel { display: none; background: #ffebeb; border: 2px dashed red; margin-top: 20px; border-radius: 15px; padding: 15px; }
     </style>
 </head>
 <body>
 
     <div class="wallet-card">
-        <div id="user-name">Загрузка...</div>
-        <div class="balance" id="balance">0 ₽</div>
-        <button class="btn" onclick="deposit()">Пополнить баланс</button>
+        <div class="balance-label">Мой баланс</div>
+        <div class="balance-value" id="balance">0.00 ₽</div>
+        <div class="btn-group">
+            <button class="btn" onclick="requestDeposit()">Пополнить</button>
+            <button class="btn btn-secondary" onclick="alert('В разработке')">Вывести</button>
+        </div>
     </div>
 
-    <div id="admin-zone" class="admin-panel">
-        <h3>Панель админа</h3>
-        <button class="btn" style="background: red;" onclick="addBalance()">+500 ₽ (Тест)</button>
+    <div class="menu-list">
+        <div class="menu-item" onclick="alert('Магазин пуст')"><span>🛒 Магазин</span> ❯</div>
+        <div class="menu-item" onclick="alert('Скоро мультиплеер!')"><span>🎮 Мини-игры</span> ❯</div>
+        <div class="menu-item" onclick="alert('Напишите @твой_ник')"><span>🎧 Поддержка</span> ❯</div>
+    </div>
+
+    <div id="admin-panel">
+        <h3 style="color:red; margin-top:0;">Админ-панель</h3>
+        <input type="number" id="admin-amount" placeholder="Сумма" style="width:70%; padding:8px; border-radius:8px; border:1px solid #ccc;">
+        <button class="btn" style="width:auto; padding:8px 15px;" onclick="addBalanceManual()">Дать ₽</button>
     </div>
 
     <script>
-        // Инициализация ТГ
         const tg = window.Telegram.WebApp;
         tg.expand();
-        document.getElementById('user-name').innerText = tg.initDataUnsafe.user?.first_name || "Гость";
 
-        // КОНФИГ FIREBASE (сюда вставишь свои данные из консоли Firebase)
+        // Инициализация твоего Firebase
         const firebaseConfig = {
-            apiKey: "ТВОЙ_КЛЮЧ",
-            authDomain: "ТВОЙ_ДОМЕН",
-            projectId: "ТВОЙ_ID",
-            storageBucket: "...",
-            messagingSenderId: "...",
-            appId: "..."
+            apiKey: "AIzaSyBALmJCUM8bIdVgBFJF66N_VoOcU4V1nqs",
+            authDomain: "normishop.firebaseapp.com",
+            databaseURL: "https://normishop-default-rtdb.firebaseio.com",
+            projectId: "normishop",
+            storageBucket: "normishop.firebasestorage.app",
+            messagingSenderId: "688066350050",
+            appId: "1:688066350050:web:ceba21916cf9708a84c7bb"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Логика проверки админа (например по твоему ID в ТГ)
-        if (tg.initDataUnsafe.user?.id === 12345678) { // Замени на свой ID
-            document.getElementById('admin-zone').style.display = 'block';
+        const userId = tg.initDataUnsafe.user?.id || "test_user"; // ID пользователя ТГ
+        
+        // ТВОЙ ID (замени на свой настоящий ID из ТГ, чтобы увидеть админку)
+        const MY_ID = 12345678; 
+
+        if (userId === MY_ID) {
+            document.getElementById('admin-panel').style.display = 'block';
         }
 
-        // Функция пополнения (ручная)
-        function deposit() {
-            tg.showPopup({
-                title: 'Пополнение',
-                message: 'Переведите деньги на карту **** и скиньте чек админу.',
-                buttons: [{text: 'Понял', type: 'ok'}]
+        // Загрузка данных пользователя
+        function loadData() {
+            db.collection("users").doc(userId.toString()).onSnapshot((doc) => {
+                if (doc.exists) {
+                    document.getElementById('balance').innerText = doc.data().balance.toFixed(2) + ' ₽';
+                } else {
+                    // Создаем юзера, если его нет
+                    db.collection("users").doc(userId.toString()).set({ balance: 0, role: "user" });
+                }
             });
         }
+
+        // Пополнение (заявка админу)
+        function requestDeposit() {
+            tg.showPopup({
+                title: 'Пополнение баланса',
+                message: 'Отправьте деньги по номеру +7900... и напишите админу ваш ID: ' + userId,
+                buttons: [{text: 'Скопировать ID', type: 'default'}, {text: 'Закрыть', type: 'destructive'}]
+            });
+        }
+
+        // Функция админа: добавить баланс
+        function addBalanceManual() {
+            const amt = parseFloat(document.getElementById('admin-amount').value);
+            if (!amt) return;
+            db.collection("users").doc(userId.toString()).update({
+                balance: firebase.firestore.FieldValue.increment(amt)
+            });
+        }
+
+        loadData();
     </script>
 </body>
 </html>
