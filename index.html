@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TG Shop & Wallet</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+    <style>
+        body { font-family: sans-serif; background: #f4f4f5; margin: 0; padding: 20px; color: #000; }
+        .wallet-card { background: #fff; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .balance { fontSize: 32px; font-weight: bold; margin: 10px 0; }
+        .btn { background: #0088cc; color: #fff; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .admin-panel { display: none; margin-top: 20px; border-top: 2px solid #000; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="wallet-card">
+        <div id="user-name">Загрузка...</div>
+        <div class="balance" id="balance">0 ₽</div>
+        <button class="btn" onclick="deposit()">Пополнить баланс</button>
+    </div>
+
+    <div id="admin-zone" class="admin-panel">
+        <h3>Панель админа</h3>
+        <button class="btn" style="background: red;" onclick="addBalance()">+500 ₽ (Тест)</button>
+    </div>
+
+    <script>
+        // Инициализация ТГ
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        document.getElementById('user-name').innerText = tg.initDataUnsafe.user?.first_name || "Гость";
+
+        // КОНФИГ FIREBASE (сюда вставишь свои данные из консоли Firebase)
+        const firebaseConfig = {
+            apiKey: "ТВОЙ_КЛЮЧ",
+            authDomain: "ТВОЙ_ДОМЕН",
+            projectId: "ТВОЙ_ID",
+            storageBucket: "...",
+            messagingSenderId: "...",
+            appId: "..."
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Логика проверки админа (например по твоему ID в ТГ)
+        if (tg.initDataUnsafe.user?.id === 12345678) { // Замени на свой ID
+            document.getElementById('admin-zone').style.display = 'block';
+        }
+
+        // Функция пополнения (ручная)
+        function deposit() {
+            tg.showPopup({
+                title: 'Пополнение',
+                message: 'Переведите деньги на карту **** и скиньте чек админу.',
+                buttons: [{text: 'Понял', type: 'ok'}]
+            });
+        }
+    </script>
+</body>
+</html>
